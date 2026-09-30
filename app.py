@@ -1,5 +1,7 @@
 import os
 import json
+import re
+import html
 from pathlib import Path
 
 import streamlit as st
@@ -9,7 +11,7 @@ from langchain_huggingface import HuggingFaceEmbeddings
 
 
 # ============================================================
-# PAGE CONFIGURATION
+# PAGE CONFIG
 # ============================================================
 
 st.set_page_config(
@@ -21,7 +23,7 @@ st.set_page_config(
 
 
 # ============================================================
-# CONFIGURATION
+# APP CONFIG
 # ============================================================
 
 BASE_DIR = Path(__file__).resolve().parent
@@ -31,145 +33,323 @@ FAISS_DIR = RAG_DIR / "faiss_db"
 CONFIG_FILE = RAG_DIR / "config" / "rag_config.json"
 
 MODEL_NAME = "openai/gpt-oss-120b"
-
 DEFAULT_TOP_K = 5
 MAX_HISTORY_MESSAGES = 8
 
 
 # ============================================================
-# CUSTOM CSS
+# LIGHT PROFESSIONAL UI
 # ============================================================
 
 st.markdown(
     """
     <style>
-        /* Main application background */
+        /* ---------- Global ---------- */
         .stApp {
-            background:
-                radial-gradient(
-                    circle at 10% 0%,
-                    rgba(255, 165, 0, 0.12),
-                    transparent 28%
-                ),
-                radial-gradient(
-                    circle at 90% 10%,
-                    rgba(255, 255, 255, 0.05),
-                    transparent 25%
-                ),
-                #0b0f14;
+            background: #f6f8fb;
+            color: #172033;
         }
 
         [data-testid="stHeader"] {
-            background: transparent;
+            background: rgba(246, 248, 251, 0.92);
         }
 
-        /* Hero */
-        .hero {
-            padding: 2rem 2.2rem;
-            border-radius: 24px;
-            background:
-                linear-gradient(
-                    135deg,
-                    rgba(255, 165, 0, 0.18),
-                    rgba(255, 255, 255, 0.04)
-                );
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
-            margin-bottom: 1.4rem;
+        [data-testid="stAppViewContainer"] {
+            background: #f6f8fb;
         }
 
-        .hero-title {
-            margin: 0;
-            font-size: 2.25rem;
-            font-weight: 800;
-            letter-spacing: -0.04em;
-            color: white;
+        .main .block-container {
+            max-width: 1180px;
+            padding-top: 2rem;
+            padding-bottom: 7rem;
         }
 
-        .hero-text {
-            margin-top: 0.6rem;
-            color: #b9c2cc;
-            font-size: 1rem;
-            line-height: 1.6;
+        /* ---------- Sidebar ---------- */
+        section[data-testid="stSidebar"] {
+            background: #ffffff;
+            border-right: 1px solid #e5eaf0;
         }
 
-        /* Sidebar status */
-        .status-card {
-            padding: 0.9rem 1rem;
-            border-radius: 14px;
-            background: rgba(255, 255, 255, 0.045);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            margin-bottom: 0.8rem;
+        section[data-testid="stSidebar"] * {
+            color: #243047;
         }
 
-        /* Metrics */
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 9px;
+            font-size: 1.18rem;
+            font-weight: 750;
+            color: #172033;
+            margin-bottom: 18px;
+        }
+
+        .sidebar-status {
+            background: #ecfdf5;
+            border: 1px solid #ccefe0;
+            color: #13795b;
+            padding: 12px 14px;
+            border-radius: 12px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            margin-bottom: 20px;
+        }
+
+        .sidebar-divider {
+            height: 1px;
+            background: #e7ebf0;
+            margin: 18px 0;
+        }
+
+        .metric-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin: 14px 0;
+        }
+
         .metric-card {
-            padding: 0.9rem;
-            border-radius: 14px;
-            background: rgba(255, 255, 255, 0.045);
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: #f8fafc;
+            border: 1px solid #e6ebf1;
+            border-radius: 12px;
+            padding: 13px 8px;
             text-align: center;
         }
 
         .metric-value {
-            font-size: 1.25rem;
+            color: #1d4ed8;
+            font-size: 1.2rem;
             font-weight: 800;
-            color: #ffa500;
         }
 
         .metric-label {
-            color: #9da8b3;
-            font-size: 0.78rem;
+            color: #7a8798;
+            font-size: 0.72rem;
+            margin-top: 3px;
         }
 
-        /* Source cards */
-        .source-card {
-            padding: 0.9rem 1rem;
-            margin: 0.55rem 0;
-            border-left: 4px solid #ffa500;
+        .model-info {
+            background: #f8fafc;
+            border: 1px solid #e6ebf1;
+            border-radius: 11px;
+            padding: 10px 12px;
+            margin-top: 8px;
+            color: #64748b;
+            font-size: 0.76rem;
+            line-height: 1.6;
+            overflow-wrap: anywhere;
+        }
+
+        .trace-card {
+            background: #f8fafc;
+            border: 1px solid #e6ebf1;
             border-radius: 12px;
-            background: rgba(255, 255, 255, 0.045);
-            border-top: 1px solid rgba(255, 255, 255, 0.06);
-            border-right: 1px solid rgba(255, 255, 255, 0.06);
-            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+            padding: 13px;
+            color: #64748b;
+            font-size: 0.8rem;
+            line-height: 1.5;
+        }
+
+        .trace-title {
+            color: #243047;
+            font-weight: 700;
+            margin-bottom: 4px;
+        }
+
+        /* ---------- Hero ---------- */
+        .hero {
+            background: linear-gradient(135deg, #ffffff 0%, #eef5ff 100%);
+            border: 1px solid #dfe8f5;
+            border-radius: 22px;
+            padding: 28px 32px;
+            margin-bottom: 22px;
+            box-shadow: 0 8px 28px rgba(30, 64, 175, 0.07);
+        }
+
+        .hero-title {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            color: #172033;
+            font-size: 2rem;
+            line-height: 1.2;
+            font-weight: 800;
+            letter-spacing: -0.025em;
+        }
+
+        .hero-icon {
+            font-size: 1.85rem;
+        }
+
+        .hero-text {
+            color: #64748b;
+            margin-top: 9px;
+            font-size: 0.98rem;
+            line-height: 1.65;
+            max-width: 850px;
+        }
+
+        /* ---------- Chat area ---------- */
+        [data-testid="stChatMessage"] {
+            border-radius: 16px;
+            margin-bottom: 10px;
+        }
+
+        [data-testid="stChatMessageContent"] {
+            color: #243047;
+        }
+
+        /* User message */
+        [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-user"]) {
+            background: #eaf2ff;
+            border: 1px solid #d7e6ff;
+        }
+
+        /* Assistant message */
+        [data-testid="stChatMessage"]:has([data-testid="chatAvatarIcon-assistant"]) {
+            background: #ffffff;
+            border: 1px solid #e5eaf0;
+            box-shadow: 0 3px 14px rgba(15, 23, 42, 0.035);
+        }
+
+        /* ---------- Chat input ---------- */
+        [data-testid="stChatInput"] {
+            background: #ffffff;
+            border-top: 1px solid #e2e8f0;
+            padding-top: 12px;
+        }
+
+        [data-testid="stChatInput"] > div {
+            background: #ffffff;
+            border: 1px solid #cbd5e1;
+            border-radius: 15px;
+            box-shadow: 0 6px 24px rgba(15, 23, 42, 0.07);
+        }
+
+        [data-testid="stChatInput"] textarea {
+            color: #172033 !important;
+            background: #ffffff !important;
+            font-size: 0.94rem !important;
+        }
+
+        [data-testid="stChatInput"] textarea::placeholder {
+            color: #94a3b8 !important;
+        }
+
+        [data-testid="stChatInput"] button {
+            color: #1d4ed8 !important;
+        }
+
+        /* ---------- Source cards ---------- */
+        .source-card {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid #3b82f6;
+            border-radius: 11px;
+            padding: 13px 15px;
+            margin: 9px 0;
         }
 
         .source-title {
-            font-weight: 700;
-            color: white;
+            color: #1e293b;
+            font-weight: 750;
+            font-size: 0.9rem;
             overflow-wrap: anywhere;
         }
 
         .source-meta {
-            color: #ffa500;
-            font-size: 0.86rem;
-            margin-top: 0.25rem;
+            color: #2563eb;
+            font-size: 0.77rem;
+            margin-top: 4px;
             overflow-wrap: anywhere;
         }
 
         .source-snippet {
-            color: #b9c2cc;
-            font-size: 0.86rem;
-            margin-top: 0.5rem;
-            line-height: 1.5;
+            color: #64748b;
+            font-size: 0.8rem;
+            line-height: 1.55;
+            margin-top: 8px;
             overflow-wrap: anywhere;
         }
 
+        /* ---------- Markdown / tables ---------- */
+        .stMarkdown,
+        [data-testid="stMarkdownContainer"] {
+            color: #243047;
+        }
+
+        [data-testid="stMarkdownContainer"] table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 12px 0;
+            font-size: 0.86rem;
+            background: #ffffff;
+        }
+
+        [data-testid="stMarkdownContainer"] th {
+            background: #eff6ff;
+            color: #1e3a8a;
+            font-weight: 700;
+            text-align: left;
+        }
+
+        [data-testid="stMarkdownContainer"] th,
+        [data-testid="stMarkdownContainer"] td {
+            border: 1px solid #dbe3ed;
+            padding: 9px 10px;
+            vertical-align: top;
+        }
+
+        [data-testid="stMarkdownContainer"] tr:nth-child(even) td {
+            background: #f8fafc;
+        }
+
+        /* ---------- Buttons ---------- */
+        .stButton > button {
+            border-radius: 10px;
+            border: 1px solid #d7dee8;
+            background: #ffffff;
+            color: #334155;
+            font-weight: 600;
+        }
+
+        .stButton > button:hover {
+            border-color: #93b4e8;
+            color: #1d4ed8;
+            background: #f8fbff;
+        }
+
+        /* ---------- Slider ---------- */
+        [data-testid="stSlider"] {
+            padding-top: 4px;
+        }
+
+        /* ---------- Footer ---------- */
         .footer {
             text-align: center;
-            color: #6f7a85;
-            font-size: 0.78rem;
-            padding: 1.5rem 0 0.5rem;
+            color: #94a3b8;
+            font-size: 0.75rem;
+            padding: 20px 0 5px;
         }
 
-        /* Chat spacing */
-        [data-testid="stChatMessage"] {
-            margin-bottom: 0.75rem;
-        }
+        /* ---------- Mobile ---------- */
+        @media (max-width: 768px) {
+            .main .block-container {
+                padding: 1rem 0.8rem 6rem;
+            }
 
-        /* Sidebar width / readability */
-        section[data-testid="stSidebar"] {
-            border-right: 1px solid rgba(255, 255, 255, 0.06);
+            .hero {
+                padding: 22px 20px;
+                border-radius: 17px;
+            }
+
+            .hero-title {
+                font-size: 1.55rem;
+            }
+
+            .hero-text {
+                font-size: 0.88rem;
+            }
         }
     </style>
     """,
@@ -178,13 +358,11 @@ st.markdown(
 
 
 # ============================================================
-# LOAD RAG DATABASE
+# RAG DATABASE
 # ============================================================
 
 @st.cache_resource(show_spinner=False)
 def load_rag_database():
-    """Load the FAISS vector database and its configuration."""
-
     if not FAISS_DIR.exists():
         raise FileNotFoundError(
             f"FAISS directory not found:\n{FAISS_DIR}"
@@ -229,13 +407,11 @@ def load_rag_database():
 
 
 # ============================================================
-# GROQ CLIENT
+# GROQ
 # ============================================================
 
 @st.cache_resource(show_spinner=False)
 def get_groq_client():
-    """Create and cache the Groq client."""
-
     api_key = os.environ.get("GROQ_API_KEY")
 
     if not api_key:
@@ -246,7 +422,7 @@ def get_groq_client():
 
     if not api_key:
         raise RuntimeError(
-            "GROQ_API_KEY is missing. Add it to your environment "
+            "GROQ_API_KEY is missing. Add it to environment "
             "variables or Streamlit secrets."
         )
 
@@ -258,8 +434,6 @@ def get_groq_client():
 # ============================================================
 
 def retrieve_documents(vectorstore, query, top_k):
-    """Retrieve the most relevant chunks from FAISS."""
-
     try:
         top_k = int(top_k)
     except (TypeError, ValueError):
@@ -274,12 +448,10 @@ def retrieve_documents(vectorstore, query, top_k):
 
 
 # ============================================================
-# TEXT CLEANING
+# TEXT HELPERS
 # ============================================================
 
 def clean_text(text, limit=600):
-    """Normalize whitespace and limit preview length."""
-
     text = " ".join((text or "").split())
 
     if len(text) > limit:
@@ -288,13 +460,38 @@ def clean_text(text, limit=600):
     return text
 
 
+def clean_model_answer(answer):
+    """
+    Clean accidental HTML produced by the model while preserving
+    normal Markdown such as headings, bullets and tables.
+
+    In the previous UI, the model could return literal <br>
+    inside Markdown tables. That was appearing as raw text.
+    """
+    if not answer:
+        return ""
+
+    text = html.unescape(str(answer))
+
+    # Convert common HTML line breaks to Markdown-friendly newlines.
+    text = re.sub(r"<br\s*/?>", "\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"</p\s*>", "\n\n", text, flags=re.IGNORECASE)
+    text = re.sub(r"<p\s*>", "", text, flags=re.IGNORECASE)
+
+    # Remove remaining simple HTML tags only if present.
+    text = re.sub(r"<(?!https?://)[^>]+>", "", text)
+
+    # Clean excessive blank lines.
+    text = re.sub(r"\n{3,}", "\n\n", text)
+
+    return text.strip()
+
+
 # ============================================================
-# BUILD LLM CONTEXT
+# CONTEXT
 # ============================================================
 
 def build_context(retrieved_documents):
-    """Convert retrieved LangChain Documents into LLM context."""
-
     context_parts = []
 
     for index, (document, distance) in enumerate(
@@ -346,12 +543,10 @@ Content:
 
 
 # ============================================================
-# GENERATE ANSWER
+# LLM ANSWER
 # ============================================================
 
 def generate_answer(client, question, context, history):
-    """Generate a grounded answer using Groq."""
-
     recent_history = history[-MAX_HISTORY_MESSAGES:]
 
     messages = [
@@ -360,23 +555,25 @@ def generate_answer(client, question, context, history):
             "content": """
 You are a University Student & Academic Knowledge Assistant.
 
-Your job is to answer student questions using ONLY the
-university knowledge supplied in the context.
+Answer questions using ONLY the university knowledge supplied
+in the context.
 
 Rules:
-
 1. Do not invent university policies.
 2. Do not invent fees.
 3. Do not invent deadlines.
 4. Do not invent GPA requirements.
 5. Do not invent examination rules.
 6. Do not use outside knowledge as university policy.
-7. If the answer is not supported by the context,
-   clearly say that the information was not found
-   in the available university documents.
-8. Keep answers clear and student-friendly.
+7. If the answer is not supported by the context, clearly say
+   that the information was not found in the available
+   university documents.
+8. Keep answers clear, accurate and student-friendly.
 9. When useful, mention the relevant document and page.
 10. Never create a fake source.
+11. Use Markdown for formatting.
+12. For tables, use Markdown tables.
+13. Do NOT use HTML tags such as <br>, <table>, <p>, etc.
 """,
         }
     ]
@@ -405,8 +602,8 @@ STUDENT QUESTION:
 
 {question}
 
-Answer the student's question using only the
-university knowledge context above.
+Answer the student's question using only the university
+knowledge context above.
 """,
         }
     )
@@ -432,7 +629,7 @@ university knowledge context above.
             "available university documents."
         )
 
-    return str(answer).strip()
+    return clean_model_answer(answer)
 
 
 # ============================================================
@@ -440,8 +637,6 @@ university knowledge context above.
 # ============================================================
 
 def create_sources(retrieved_documents):
-    """Create serializable source dictionaries for session state."""
-
     sources = []
 
     for document, distance in retrieved_documents:
@@ -494,15 +689,7 @@ def create_sources(retrieved_documents):
 # ============================================================
 
 def display_sources(sources):
-    """Display retrieved sources safely.
-
-    Important:
-    Dynamic document text is escaped before being inserted into
-    HTML. This prevents source content containing '<', '>', '&',
-    etc. from breaking the Streamlit UI.
-    """
-
-    with st.expander("📚 View Retrieved Sources"):
+    with st.expander("📚 Retrieved Sources", expanded=False):
         if not sources:
             st.info("No source information available.")
             return
@@ -540,45 +727,28 @@ def display_sources(sources):
                 or "No preview available."
             )
 
-            # Escape dynamic values before inserting them into HTML.
-            import html
+            try:
+                distance_text = (
+                    f" • Similarity score: {float(distance):.4f}"
+                ) if distance is not None else ""
+            except (TypeError, ValueError):
+                distance_text = ""
 
-            source_file = html.escape(str(source_file))
-            page_number = html.escape(str(page_number))
-            citation = html.escape(str(citation))
-            snippet = html.escape(clean_text(str(snippet), 500))
+            # Dynamic source values are shown with Streamlit native
+            # components instead of raw HTML.
+            with st.container(border=True):
+                st.markdown(
+                    f"**📄 Source {index}: {source_file}**"
+                )
 
-            distance_text = ""
+                st.caption(
+                    f"📑 Page {page_number}  •  "
+                    f"🔗 {citation}{distance_text}"
+                )
 
-            if distance is not None:
-                try:
-                    distance_text = (
-                        f" • 🔎 Distance {float(distance):.4f}"
-                    )
-                except (TypeError, ValueError):
-                    distance_text = ""
-
-            st.markdown(
-                f"""
-                <div class="source-card">
-                    <div class="source-title">
-                        📄 Source {index}: {source_file}
-                    </div>
-
-                    <div class="source-meta">
-                        📑 Page {page_number}
-                        &nbsp; • &nbsp;
-                        🔗 {citation}
-                        {distance_text}
-                    </div>
-
-                    <div class="source-snippet">
-                        {snippet}
-                    </div>
-                </div>
-                """,
-                unsafe_allow_html=True,
-            )
+                st.write(
+                    clean_text(str(snippet), 500)
+                )
 
 
 # ============================================================
@@ -596,11 +766,16 @@ if "messages" not in st.session_state:
 st.markdown(
     """
     <div class="hero">
-        <div class="hero-title">🎓 University Knowledge Assistant</div>
+        <div class="hero-title">
+            <span class="hero-icon">🎓</span>
+            <span>University Knowledge Assistant</span>
+        </div>
+
         <div class="hero-text">
             Ask questions about academic policies, examinations,
-            fees, scholarships, admissions, student services
-            and university rules.
+            fees, scholarships, admissions, student services and
+            university rules. Answers are grounded in your
+            university knowledge base.
         </div>
     </div>
     """,
@@ -609,7 +784,7 @@ st.markdown(
 
 
 # ============================================================
-# INITIALIZE SYSTEM
+# INITIALIZE
 # ============================================================
 
 try:
@@ -632,14 +807,27 @@ except Exception as error:
 # ============================================================
 
 with st.sidebar:
-    st.markdown("## 🎓 Assistant")
+    st.markdown(
+        """
+        <div class="sidebar-brand">
+            🎓 <span>Assistant</span>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
 
     if system_ready:
-        st.success("Knowledge Base Ready")
+        st.markdown(
+            '<div class="sidebar-status">✓ Knowledge Base Ready</div>',
+            unsafe_allow_html=True,
+        )
     else:
         st.error("Knowledge Base Unavailable")
 
-    st.markdown("---")
+    st.markdown(
+        '<div class="sidebar-divider"></div>',
+        unsafe_allow_html=True,
+    )
 
     if system_ready:
         document_count = rag_config.get(
@@ -657,54 +845,52 @@ with st.sidebar:
             "BAAI/bge-small-en-v1.5",
         )
 
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.markdown(
-                f"""
+        st.markdown(
+            f"""
+            <div class="metric-grid">
                 <div class="metric-card">
-                    <div class="metric-value">
-                        {document_count}
-                    </div>
-                    <div class="metric-label">
-                        Documents
-                    </div>
+                    <div class="metric-value">{document_count}</div>
+                    <div class="metric-label">Documents</div>
                 </div>
-                """,
-                unsafe_allow_html=True,
-            )
 
-        with col2:
-            st.markdown(
-                f"""
                 <div class="metric-card">
-                    <div class="metric-value">
-                        {chunk_count}
-                    </div>
-                    <div class="metric-label">
-                        Chunks
-                    </div>
+                    <div class="metric-value">{chunk_count}</div>
+                    <div class="metric-label">Chunks</div>
                 </div>
-                """,
-                unsafe_allow_html=True,
-            )
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
+
+        st.markdown(
+            f"""
+            <div class="model-info">
+                <b>Embedding</b><br>
+                {embedding_model}<br><br>
+                <b>LLM</b><br>
+                {MODEL_NAME}
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
         st.markdown("")
-
-        st.caption(f"Embedding: `{embedding_model}`")
-        st.caption(f"LLM: `{MODEL_NAME}`")
 
         top_k = st.slider(
             "🔎 Retrieved sources",
             min_value=3,
             max_value=8,
             value=DEFAULT_TOP_K,
+            help="Number of relevant document chunks sent to the LLM.",
         )
 
     else:
         top_k = DEFAULT_TOP_K
 
-    st.markdown("---")
+    st.markdown(
+        '<div class="sidebar-divider"></div>',
+        unsafe_allow_html=True,
+    )
 
     if st.button(
         "🗑️ Clear Chat",
@@ -713,14 +899,14 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
 
+    st.markdown("")
+
     st.markdown(
         """
-        <div class="status-card">
-            <b>🔎 Traceable RAG</b><br>
-            <span style="color:#9da8b3;">
-                Every retrieved answer is connected
-                to document and page metadata.
-            </span>
+        <div class="trace-card">
+            <div class="trace-title">🔎 Traceable RAG</div>
+            Each answer can be inspected through its
+            retrieved document sources and page metadata.
         </div>
         """,
         unsafe_allow_html=True,
@@ -728,7 +914,7 @@ with st.sidebar:
 
 
 # ============================================================
-# DISPLAY CHAT HISTORY
+# CHAT HISTORY
 # ============================================================
 
 for message in st.session_state.messages:
@@ -777,7 +963,6 @@ if question:
         )
         st.stop()
 
-    # Store user message.
     st.session_state.messages.append(
         {
             "role": "user",
@@ -797,28 +982,29 @@ if question:
                     top_k,
                 )
 
-                if not retrieved_documents:
-                    answer = (
-                        "I could not find relevant information "
-                        "in the available university documents."
-                    )
-                    sources = []
-                else:
-                    context = build_context(
-                        retrieved_documents
+            if not retrieved_documents:
+                answer = (
+                    "I could not find relevant information "
+                    "in the available university documents."
+                )
+                sources = []
+
+            else:
+                context = build_context(
+                    retrieved_documents
+                )
+
+                with st.spinner("🤖 Generating answer..."):
+                    answer = generate_answer(
+                        groq_client,
+                        question,
+                        context,
+                        st.session_state.messages[:-1],
                     )
 
-                    with st.spinner("🤖 Generating answer..."):
-                        answer = generate_answer(
-                            groq_client,
-                            question,
-                            context,
-                            st.session_state.messages[:-1],
-                        )
-
-                    sources = create_sources(
-                        retrieved_documents
-                    )
+                sources = create_sources(
+                    retrieved_documents
+                )
 
             st.markdown(answer)
 
@@ -859,7 +1045,8 @@ if question:
 st.markdown(
     """
     <div class="footer">
-        Built with Streamlit · FAISS · Hugging Face Embeddings · Groq
+        University Knowledge Assistant ·
+        Streamlit · FAISS · Hugging Face Embeddings · Groq
     </div>
     """,
     unsafe_allow_html=True,
