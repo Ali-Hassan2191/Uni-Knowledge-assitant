@@ -1,0 +1,73 @@
+{
+  "knowledge_base": "University Student & Academic Knowledge Assistant",
+  "created_at_utc": "2026-09-30T15:41:58.263059+00:00",
+  "total_documents": 11,
+  "documents": [
+    {
+      "document_id": 1,
+      "source_file": "09_hostel_policy.pdf",
+      "page_count": 1,
+      "file_type": "pdf"
+    },
+    {
+      "document_id": 2,
+      "source_file": "10_library_policy.pdf",
+      "page_count": 1,
+      "file_type": "pdf"
+    },
+    {
+      "document_id": 3,
+      "source_file": "11_student_services_and_support.pdf",
+      "page_count": 1,
+      "file_type": "pdf"
+    },
+    {
+      "document_id": 4,
+      "source_file": "12_academic_integrity_and_plagiarism.pdf",
+      "page_count": 1,
+      "file_type": "pdf"
+    },
+    {
+      "document_id": 5,
+      "source_file": "academic_calendar.pdf",
+      "page_count": 2,
+      "file_type": "pdf"
+    },
+    {
+      "document_id": 6,
+      "source_file": "admission_guidelines.pdf",
+      "page_count": 2,
+      "file_type": "pdf"
+    },
+    {
+      "document_id": 7,
+      "source_file": "examination_rules.pdf",
+      "page_count": 2,
+      "file_type": "pdf"
+    },
+    {
+      "document_id": 8,
+      "source_file": "fee_policy.pdf",
+      "page_count": 2,
+      "file_type": "pdf"
+    },
+    {
+      "document_id": 9,
+      "source_file": "scholarship_policy.pdf",
+      "page_count": 2,
+      "file_type": "pdf"
+    },
+    {
+      "document_id": 10,
+      "source_file": "student_handbook.pdf",
+      "page_count": 3,
+      "file_type": "pdf"
+    },
+    {
+      "document_id": 11,
+      "source_file": "university_rules.pdf",
+      "page_count": 2,
+      "file_type": "pdf"
+    }
+  ]
+}

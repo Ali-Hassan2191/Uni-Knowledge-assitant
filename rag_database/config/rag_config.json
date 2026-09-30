@@ -1,0 +1,29 @@
+{
+  "knowledge_base_name": "University Student & Academic Knowledge Assistant",
+  "created_at_utc": "2026-09-30T15:41:58.262397+00:00",
+  "embedding_model": "BAAI/bge-small-en-v1.5",
+  "embedding_provider": "HuggingFace",
+  "vector_database": "FAISS",
+  "framework": "LangChain",
+  "pdf_loader": "PyPDFLoader",
+  "text_splitter": "RecursiveCharacterTextSplitter",
+  "chunk_size": 1000,
+  "chunk_overlap": 150,
+  "total_documents": 11,
+  "total_pages": 19,
+  "total_chunks": 34,
+  "metadata_fields": [
+    "document_id",
+    "source_file",
+    "source_path",
+    "file_type",
+    "document_type",
+    "page_number",
+    "original_page_index",
+    "chunk_id",
+    "global_chunk_index",
+    "chunk_index_on_page",
+    "chunk_character_count",
+    "citation"
+  ]
+}
