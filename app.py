@@ -474,9 +474,7 @@ university knowledge context above.
 # SOURCE FORMATTER
 # ============================================================
 
-def create_sources(
-    retrieved_documents
-):
+def create_sources(retrieved_documents):
 
     sources = []
 
@@ -484,25 +482,21 @@ def create_sources(
 
         metadata = document.metadata or {}
 
-        source_file = metadata.get(
-            "source_file",
-            metadata.get(
-                "source_path",
-                "Unknown document"
-            )
+        source_file = (
+            metadata.get("source_file")
+            or metadata.get("source_path")
+            or "Unknown document"
         )
 
-        page_number = metadata.get(
-            "page_number",
-            metadata.get(
-                "page",
-                "Unknown"
-            )
+        page_number = (
+            metadata.get("page_number")
+            or metadata.get("page")
+            or "Unknown"
         )
 
-        citation = metadata.get(
-            "citation",
-            f"{source_file}, Page {page_number}"
+        citation = (
+            metadata.get("citation")
+            or f"{source_file}, Page {page_number}"
         )
 
         sources.append(
@@ -520,44 +514,78 @@ def create_sources(
 
     return sources
 
-
 # ============================================================
 # SOURCE UI
 # ============================================================
 
-def display_sources(
-    sources
-):
+def display_sources(sources):
 
-    with st.expander(
-        "📚 View Retrieved Sources"
-    ):
+    with st.expander("📚 View Retrieved Sources"):
 
-        for source in sources:
+        if not sources:
+            st.info("No source information available.")
+            return
+
+        for index, source in enumerate(sources, start=1):
+
+            source_file = (
+                source.get("file")
+                or source.get("source_file")
+                or source.get("source_path")
+                or "Unknown document"
+            )
+
+            page_number = (
+                source.get("page")
+                or source.get("page_number")
+                or source.get("original_page_index")
+                or "Unknown"
+            )
+
+            citation = (
+                source.get("citation")
+                or f"{source_file}, Page {page_number}"
+            )
+
+            distance = source.get("distance")
+
+            snippet = (
+                source.get("snippet")
+                or source.get("content")
+                or source.get("text")
+                or "No preview available."
+            )
+
+            if distance is not None:
+                distance_text = (
+                    f" • 🔎 Distance {float(distance):.4f}"
+                )
+            else:
+                distance_text = ""
 
             st.markdown(
                 f"""
                 <div class="source-card">
 
                     <div class="source-title">
-                        📄 {source["file"]}
+                        📄 {source_file}
                     </div>
 
                     <div class="source-meta">
-                        📑 Page {source["page"]}
+                        📑 Page {page_number}
                         &nbsp; • &nbsp;
-                        🔎 Distance {source["distance"]:.4f}
+                        🔗 {citation}
+                        {distance_text}
                     </div>
 
                     <div class="source-snippet">
-                        {source["snippet"]}
+                        {snippet}
                     </div>
 
                 </div>
                 """,
                 unsafe_allow_html=True
             )
-
 
 # ============================================================
 # SESSION STATE
@@ -768,16 +796,13 @@ for message in st.session_state.messages:
             message["content"]
         )
 
-        if (
-            message["role"] == "assistant"
-            and message.get("sources")
-        ):
+        if message.get("role") == "assistant":
 
-            display_sources(
-                message["sources"]
-            )
+    sources = message.get("sources", [])
 
-
+    if sources:
+        display_sources(sources)
+        
 # ============================================================
 # CHAT INPUT
 # ============================================================
