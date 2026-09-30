@@ -50,11 +50,15 @@ st.markdown(
 @import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap');
 :root{--pine:#0E3B43;--moss:#2E8B6F;--gold:#E2A93B;--ink:#1B2B30;--mist:#F4F7F8;--line:#DCE5E8;}
 html, body, [class*="css"], .stMarkdown, .stChatInput textarea{font-family:'DM Sans',sans-serif;color:var(--ink);}
-.block-container{padding-top:1.6rem;max-width:920px;}
-.hero{background:linear-gradient(120deg,var(--pine) 0%,#155A5E 60%,var(--moss) 130%);
-  border-radius:20px;padding:1.8rem 2rem;margin-bottom:1.2rem;color:#fff;}
-.hero h1{font-family:'Fraunces',serif;font-size:2rem;margin:0 0 .3rem 0;color:#fff;letter-spacing:-.01em;}
-.hero p{margin:0;color:#CFE6E3;font-size:1rem;}
+header[data-testid="stHeader"]{background:transparent;}
+.block-container{padding-top:4.5rem;max-width:920px;padding-bottom:2rem;}
+.hero{display:flex;align-items:center;gap:1.2rem;background:linear-gradient(120deg,var(--pine) 0%,#155A5E 60%,var(--moss) 130%);
+  border-radius:22px;padding:1.6rem 1.9rem;margin-bottom:1.4rem;color:#fff;box-shadow:0 10px 30px rgba(14,59,67,.18);}
+.hero .badge{flex:0 0 64px;height:64px;border-radius:18px;background:rgba(255,255,255,.14);
+  border:1px solid rgba(255,255,255,.28);display:flex;align-items:center;justify-content:center;}
+.hero h1{font-family:'Fraunces',serif;font-size:2rem;margin:0 0 .25rem 0;padding:0;color:#fff;letter-spacing:-.01em;line-height:1.15;}
+.hero p{margin:0;color:#CFE6E3;font-size:.98rem;line-height:1.5;}
+@media (max-width:640px){.hero{flex-direction:column;align-items:flex-start;}.hero h1{font-size:1.6rem;}}
 section[data-testid="stSidebar"]{background:var(--mist);border-right:1px solid var(--line);}
 .stat{display:flex;justify-content:space-between;padding:.55rem .8rem;margin-bottom:.4rem;
   background:#fff;border:1px solid var(--line);border-radius:12px;font-size:.92rem;}
@@ -70,6 +74,22 @@ section[data-testid="stSidebar"]{background:var(--mist);border-right:1px solid v
   padding:0 .6rem;font-size:.75rem;font-weight:600;}
 .stButton>button{border-radius:12px;border:1px solid var(--line);text-align:left;}
 .stButton>button:hover{border-color:var(--moss);color:var(--pine);}
+
+/* chat bubbles */
+[data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]){background:#EEF6F3;border-color:#CFE5DC;}
+[data-testid="stChatMessageAvatarUser"]{background:var(--pine)!important;color:#fff!important;}
+[data-testid="stChatMessageAvatarAssistant"]{background:var(--moss)!important;color:#fff!important;}
+/* chat input */
+[data-testid="stChatInput"]{border:1.5px solid var(--line);border-radius:16px;background:#fff;}
+[data-testid="stChatInput"]:focus-within{border-color:var(--moss);box-shadow:0 0 0 3px rgba(46,139,111,.18);}
+[data-testid="stChatInput"] textarea{caret-color:var(--moss);}
+/* send button: green background, white icon */
+[data-testid="stChatInputSubmitButton"], [data-testid="stChatInput"] button{
+  background:var(--moss)!important;color:#fff!important;border:none!important;border-radius:12px!important;}
+[data-testid="stChatInputSubmitButton"] svg, [data-testid="stChatInput"] button svg{color:#fff!important;fill:#fff!important;}
+[data-testid="stChatInputSubmitButton"]:hover, [data-testid="stChatInput"] button:hover{background:var(--pine)!important;}
+[data-testid="stChatInputSubmitButton"]:disabled, [data-testid="stChatInput"] button:disabled{opacity:.55;}
+.disclaimer{font-size:.78rem;color:#5D7278;line-height:1.45;margin-top:.8rem;}
 #MainMenu, footer{visibility:hidden;}
 </style>
 """,
@@ -200,14 +220,17 @@ with st.sidebar:
     if st.button("🗑️ Clear chat", width="stretch"):
         st.session_state.messages = []
         st.rerun()
+    st.markdown('<div class="disclaimer">Answers come from the uploaded university documents. Please confirm important deadlines and fees with the official office.</div>', unsafe_allow_html=True)
     st.caption(f"Model: `{GROQ_MODEL}`  \nEmbeddings: `{config.get('embedding_model', DEFAULT_EMBEDDING_MODEL)}`")
 
 # ----------------------------------------------------------------------------
 # Main UI
 # ----------------------------------------------------------------------------
 st.markdown(
-    f"""<div class="hero"><h1>{APP_TITLE}</h1>
-<p>Ask about admissions, scholarships, attendance, fees and more. Every answer links back to its source document and page.</p></div>""",
+    f"""<div class="hero">
+<div class="badge"><svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.5 2.7 3 6 3s6-1.5 6-3v-5"/><path d="M22 10v6"/></svg></div>
+<div><h1>{APP_TITLE}</h1>
+<p>Ask about admissions, scholarships, attendance, fees and more. Every answer links back to its source document and page.</p></div></div>""",
     unsafe_allow_html=True,
 )
 
@@ -229,7 +252,7 @@ if not st.session_state.messages:
             st.rerun()
 
 for msg in st.session_state.messages:
-    with st.chat_message(msg["role"], avatar="🧑‍🎓" if msg["role"] == "user" else "🎓"):
+    with st.chat_message(msg["role"], avatar=":material/person:" if msg["role"] == "user" else ":material/school:"):
         st.markdown(msg["content"])
         if msg["role"] == "assistant" and show_sources:
             render_sources(msg.get("sources", []))
@@ -239,10 +262,10 @@ prompt = st.chat_input("Ask a question about the university…") or st.session_s
 if prompt:
     history = list(st.session_state.messages)
     st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user", avatar="🧑‍🎓"):
+    with st.chat_message("user", avatar=":material/person:"):
         st.markdown(prompt)
 
-    with st.chat_message("assistant", avatar="🎓"):
+    with st.chat_message("assistant", avatar=":material/school:"):
         try:
             with st.spinner("Searching documents…"):
                 sources = retrieve(vectorstore, prompt, top_k, selected)
