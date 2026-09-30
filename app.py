@@ -798,10 +798,10 @@ for message in st.session_state.messages:
 
         if message.get("role") == "assistant":
 
-    sources = message.get("sources", [])
+            sources = message.get("sources", [])
 
-    if sources:
-        display_sources(sources)
+        if sources:
+            display_sources(sources)
         
 # ============================================================
 # CHAT INPUT
