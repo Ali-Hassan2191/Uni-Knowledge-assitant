@@ -1,9 +1,5 @@
-"""University Student & Academic Knowledge Assistant
-RAG app: pre-built FAISS index + HuggingFace embeddings + Groq (gpt-oss-120b)."""
-
-import html
-import json
 import os
+import json
 from pathlib import Path
 
 import streamlit as st
@@ -11,248 +7,888 @@ from groq import Groq
 from langchain_community.vectorstores import FAISS
 from langchain_huggingface import HuggingFaceEmbeddings
 
-# ----------------------------------------------------------------------------
-# Config
-# ----------------------------------------------------------------------------
-APP_TITLE = "University Knowledge Assistant"
-GROQ_MODEL = "openai/gpt-oss-120b"
-DEFAULT_EMBEDDING_MODEL = "BAAI/bge-small-en-v1.5"
 
-DB_DIR = Path(__file__).parent / "rag_database"
-FAISS_DIR = DB_DIR / "faiss_db"
-CONFIG_PATH = DB_DIR / "config" / "rag_config.json"
-MANIFEST_PATH = DB_DIR / "metadata" / "document_manifest.json"
+# ============================================================
+# PAGE CONFIGURATION
+# ============================================================
 
-SUGGESTIONS = [
-    "What are the undergraduate admission requirements?",
-    "What is the minimum attendance for final exams?",
-    "What GPA is needed for the merit scholarship?",
-    "When is tuition due for the next semester?",
-]
+st.set_page_config(
+    page_title="University Knowledge Assistant",
+    page_icon="🎓",
+    layout="wide",
+    initial_sidebar_state="expanded",
+)
 
-SYSTEM_PROMPT = """You are the University Knowledge Assistant for students.
-Answer ONLY from the numbered context excerpts provided.
-Rules:
-- Cite every fact with its source tag, e.g. [S1] or [S2][S3].
-- If the context does not contain the answer, say you could not find it in the
-  university documents and suggest contacting the relevant university office.
-- Never invent policies, dates, fees or GPA thresholds.
-- Be clear and concise. Use short paragraphs or bullet points."""
 
-st.set_page_config(page_title=APP_TITLE, page_icon="🎓", layout="wide")
+# ============================================================
+# CONFIGURATION
+# ============================================================
 
-# ----------------------------------------------------------------------------
-# Styling
-# ----------------------------------------------------------------------------
+BASE_DIR = Path(__file__).resolve().parent
+
+RAG_DIR = BASE_DIR / "rag_database"
+FAISS_DIR = RAG_DIR / "faiss_db"
+CONFIG_FILE = RAG_DIR / "config" / "rag_config.json"
+
+MODEL_NAME = "openai/gpt-oss-120b"
+
+DEFAULT_TOP_K = 5
+MAX_HISTORY_MESSAGES = 8
+
+
+# ============================================================
+# CUSTOM CSS
+# ============================================================
+
 st.markdown(
     """
-<style>
-@import url('https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600&family=Fraunces:opsz,wght@9..144,600;9..144,700&display=swap');
-:root{--pine:#0E3B43;--moss:#2E8B6F;--gold:#E2A93B;--ink:#1B2B30;--mist:#F4F7F8;--line:#DCE5E8;}
-html, body, [class*="css"], .stMarkdown, .stChatInput textarea{font-family:'DM Sans',sans-serif;color:var(--ink);}
-.block-container{padding-top:1.6rem;max-width:920px;}
-.hero{background:linear-gradient(120deg,var(--pine) 0%,#155A5E 60%,var(--moss) 130%);
-  border-radius:20px;padding:1.8rem 2rem;margin-bottom:1.2rem;color:#fff;}
-.hero h1{font-family:'Fraunces',serif;font-size:2rem;margin:0 0 .3rem 0;color:#fff;letter-spacing:-.01em;}
-.hero p{margin:0;color:#CFE6E3;font-size:1rem;}
-section[data-testid="stSidebar"]{background:var(--mist);border-right:1px solid var(--line);}
-.stat{display:flex;justify-content:space-between;padding:.55rem .8rem;margin-bottom:.4rem;
-  background:#fff;border:1px solid var(--line);border-radius:12px;font-size:.92rem;}
-.stat b{color:var(--pine);}
-[data-testid="stChatMessage"]{background:#fff;border:1px solid var(--line);border-radius:16px;padding:1rem 1.1rem;}
-.src{border-left:4px solid var(--moss);background:var(--mist);border-radius:10px;padding:.7rem .9rem;margin:.5rem 0;}
-.src .tag{display:inline-block;background:var(--pine);color:#fff;border-radius:6px;padding:0 .45rem;
-  font-size:.78rem;font-weight:600;margin-right:.4rem;}
-.src .cite{font-weight:600;color:var(--pine);}
-.src .meta{font-size:.78rem;color:#5D7278;margin:.2rem 0 .35rem 0;}
-.src .snip{font-size:.86rem;color:#33474D;line-height:1.5;}
-.pill{display:inline-block;background:#FFF4DC;color:#8A5F0A;border:1px solid #F1D9A0;border-radius:999px;
-  padding:0 .6rem;font-size:.75rem;font-weight:600;}
-.stButton>button{border-radius:12px;border:1px solid var(--line);text-align:left;}
-.stButton>button:hover{border-color:var(--moss);color:var(--pine);}
-#MainMenu, footer{visibility:hidden;}
-</style>
-""",
+    <style>
+
+    .stApp {
+        background:
+            radial-gradient(
+                circle at 10% 0%,
+                rgba(255, 165, 0, 0.12),
+                transparent 28%
+            ),
+            radial-gradient(
+                circle at 90% 10%,
+                rgba(255, 255, 255, 0.05),
+                transparent 25%
+            ),
+            #0b0f14;
+    }
+
+    [data-testid="stHeader"] {
+        background: transparent;
+    }
+
+    .hero {
+        padding: 2rem 2.2rem;
+        border-radius: 24px;
+
+        background:
+            linear-gradient(
+                135deg,
+                rgba(255,165,0,0.18),
+                rgba(255,255,255,0.04)
+            );
+
+        border: 1px solid rgba(255,255,255,0.08);
+
+        box-shadow:
+            0 20px 50px rgba(0,0,0,0.25);
+
+        margin-bottom: 1.4rem;
+    }
+
+    .hero h1 {
+        margin: 0;
+        font-size: 2.3rem;
+        letter-spacing: -0.04em;
+    }
+
+    .hero p {
+        margin-top: 0.6rem;
+        color: #b9c2cc;
+        font-size: 1rem;
+    }
+
+    .status-card {
+        padding: 0.9rem 1rem;
+        border-radius: 14px;
+
+        background: rgba(255,255,255,0.045);
+
+        border:
+            1px solid rgba(255,255,255,0.08);
+
+        margin-bottom: 0.8rem;
+    }
+
+    .metric-card {
+        padding: 0.9rem;
+
+        border-radius: 14px;
+
+        background: rgba(255,255,255,0.045);
+
+        border:
+            1px solid rgba(255,255,255,0.08);
+
+        text-align: center;
+    }
+
+    .metric-value {
+        font-size: 1.25rem;
+        font-weight: 800;
+        color: #ffa500;
+    }
+
+    .metric-label {
+        color: #9da8b3;
+        font-size: 0.78rem;
+    }
+
+    .source-card {
+        padding: 0.9rem 1rem;
+        margin: 0.55rem 0;
+
+        border-left:
+            4px solid #ffa500;
+
+        border-radius: 12px;
+
+        background:
+            rgba(255,255,255,0.045);
+
+        border-top:
+            1px solid rgba(255,255,255,0.06);
+
+        border-right:
+            1px solid rgba(255,255,255,0.06);
+
+        border-bottom:
+            1px solid rgba(255,255,255,0.06);
+    }
+
+    .source-title {
+        font-weight: 700;
+        color: white;
+    }
+
+    .source-meta {
+        color: #ffa500;
+        font-size: 0.86rem;
+        margin-top: 0.25rem;
+    }
+
+    .source-snippet {
+        color: #b9c2cc;
+        font-size: 0.86rem;
+        margin-top: 0.5rem;
+        line-height: 1.5;
+    }
+
+    .footer {
+        text-align: center;
+        color: #6f7a85;
+        font-size: 0.78rem;
+        padding: 1.5rem 0 0.5rem;
+    }
+
+    </style>
+    """,
     unsafe_allow_html=True,
 )
 
-# ----------------------------------------------------------------------------
-# Helpers
-# ----------------------------------------------------------------------------
-def read_json(path: Path) -> dict:
-    try:
-        return json.loads(path.read_text(encoding="utf-8"))
-    except Exception:
-        return {}
 
+# ============================================================
+# LOAD RAG DATABASE
+# ============================================================
 
-def get_api_key() -> str | None:
-    try:
-        key = st.secrets["GROQ_API_KEY"]
-    except Exception:
-        key = None
-    return key or os.environ.get("GROQ_API_KEY")
+@st.cache_resource(show_spinner=False)
+def load_rag_database():
 
+    if not FAISS_DIR.exists():
+        raise FileNotFoundError(
+            f"FAISS directory not found:\n{FAISS_DIR}"
+        )
 
-@st.cache_resource(show_spinner="Loading knowledge base…")
-def load_vectorstore(model_name: str) -> FAISS:
+    if not (FAISS_DIR / "index.faiss").exists():
+        raise FileNotFoundError(
+            "index.faiss was not found."
+        )
+
+    if not (FAISS_DIR / "index.pkl").exists():
+        raise FileNotFoundError(
+            "index.pkl was not found."
+        )
+
+    if not CONFIG_FILE.exists():
+        raise FileNotFoundError(
+            "rag_config.json was not found."
+        )
+
+    with open(
+        CONFIG_FILE,
+        "r",
+        encoding="utf-8"
+    ) as file:
+
+        config = json.load(file)
+
+    embedding_model = config.get(
+        "embedding_model",
+        "BAAI/bge-small-en-v1.5"
+    )
+
     embeddings = HuggingFaceEmbeddings(
-        model_name=model_name,
-        model_kwargs={"device": "cpu"},
-        encode_kwargs={"normalize_embeddings": True},
+        model_name=embedding_model,
+
+        model_kwargs={
+            "device": "cpu"
+        },
+
+        encode_kwargs={
+            "normalize_embeddings": True
+        }
     )
-    # index.pkl is our own pickle created in Colab, so this is safe.
-    return FAISS.load_local(
-        str(FAISS_DIR), embeddings, allow_dangerous_deserialization=True
+
+    vectorstore = FAISS.load_local(
+        str(FAISS_DIR),
+        embeddings,
+        allow_dangerous_deserialization=True
+    )
+
+    return vectorstore, config
+
+
+# ============================================================
+# GROQ CLIENT
+# ============================================================
+
+@st.cache_resource(show_spinner=False)
+def get_groq_client():
+
+    api_key = os.environ.get("GROQ_API_KEY")
+
+    if not api_key:
+
+        try:
+            api_key = st.secrets.get(
+                "GROQ_API_KEY"
+            )
+
+        except Exception:
+            api_key = None
+
+    if not api_key:
+
+        raise RuntimeError(
+            "GROQ_API_KEY is missing."
+        )
+
+    return Groq(
+        api_key=api_key
     )
 
 
-@st.cache_resource
-def get_client(api_key: str) -> Groq:
-    return Groq(api_key=api_key)
+# ============================================================
+# RETRIEVAL
+# ============================================================
 
+def retrieve_documents(
+    vectorstore,
+    query,
+    top_k
+):
 
-def retrieve(vs: FAISS, query: str, k: int, files: list[str]) -> list[dict]:
-    flt = (lambda m: m.get("source_file") in files) if files else None
-    hits = vs.similarity_search_with_score(
-        query, k=k, filter=flt, fetch_k=max(k * 6, 30)
+    return vectorstore.similarity_search_with_score(
+        query,
+        k=top_k
     )
-    results = []
-    for doc, dist in hits:
-        # Vectors are normalized, FAISS returns squared L2 -> cosine = 1 - d/2
-        relevance = max(0.0, min(1.0, 1 - float(dist) / 2))
-        results.append({"text": doc.page_content, "meta": doc.metadata, "score": relevance})
-    return results
 
 
-def build_messages(query: str, sources: list[dict], history: list[dict]) -> list[dict]:
-    context = "\n\n".join(
-        f"[S{i}] ({s['meta'].get('source_file')}, page {s['meta'].get('page_number')})\n{s['text']}"
-        for i, s in enumerate(sources, 1)
+# ============================================================
+# TEXT CLEANING
+# ============================================================
+
+def clean_text(
+    text,
+    limit=600
+):
+
+    text = " ".join(
+        (text or "").split()
     )
-    msgs = [{"role": "system", "content": SYSTEM_PROMPT}]
-    msgs += [{"role": m["role"], "content": m["content"]} for m in history[-6:]]
-    msgs.append({"role": "user", "content": f"Context:\n{context}\n\nQuestion: {query}"})
-    return msgs
+
+    if len(text) > limit:
+
+        return (
+            text[:limit].rstrip()
+            + "..."
+        )
+
+    return text
 
 
-def stream_answer(client: Groq, messages: list[dict], temperature: float):
-    stream = client.chat.completions.create(
-        model=GROQ_MODEL,
+# ============================================================
+# BUILD LLM CONTEXT
+# ============================================================
+
+def build_context(
+    retrieved_documents
+):
+
+    context_parts = []
+
+    for index, (
+        document,
+        distance
+    ) in enumerate(
+        retrieved_documents,
+        start=1
+    ):
+
+        metadata = document.metadata or {}
+
+        source_file = metadata.get(
+            "source_file",
+            metadata.get(
+                "source_path",
+                "Unknown document"
+            )
+        )
+
+        page_number = metadata.get(
+            "page_number",
+            metadata.get(
+                "page",
+                "Unknown"
+            )
+        )
+
+        citation = metadata.get(
+            "citation",
+            f"{source_file}, Page {page_number}"
+        )
+
+        context_parts.append(
+            f"""
+[SOURCE {index}]
+
+Citation:
+{citation}
+
+Document:
+{source_file}
+
+Page:
+{page_number}
+
+Content:
+{document.page_content}
+"""
+        )
+
+    return "\n\n".join(
+        context_parts
+    )
+
+
+# ============================================================
+# GENERATE ANSWER
+# ============================================================
+
+def generate_answer(
+    client,
+    question,
+    context,
+    history
+):
+
+    recent_history = history[
+        -MAX_HISTORY_MESSAGES:
+    ]
+
+    messages = [
+
+        {
+            "role": "system",
+
+            "content": """
+You are a University Student & Academic Knowledge Assistant.
+
+Your job is to answer student questions using ONLY the
+university knowledge supplied in the context.
+
+Rules:
+
+1. Do not invent university policies.
+2. Do not invent fees.
+3. Do not invent deadlines.
+4. Do not invent GPA requirements.
+5. Do not invent examination rules.
+6. Do not use outside knowledge as university policy.
+7. If the answer is not supported by the context,
+   clearly say that the information was not found
+   in the available university documents.
+8. Keep answers clear and student-friendly.
+9. When useful, mention the relevant document and page.
+10. Never create a fake source.
+"""
+        }
+    ]
+
+    for message in recent_history:
+
+        messages.append(
+            {
+                "role": message["role"],
+                "content": message["content"]
+            }
+        )
+
+    messages.append(
+        {
+            "role": "user",
+
+            "content": f"""
+UNIVERSITY KNOWLEDGE CONTEXT:
+
+{context}
+
+
+STUDENT QUESTION:
+
+{question}
+
+
+Answer the student's question using only the
+university knowledge context above.
+"""
+        }
+    )
+
+    completion = client.chat.completions.create(
+
         messages=messages,
-        temperature=temperature,
-        max_completion_tokens=1500,
-        reasoning_effort="low",
-        stream=True,
+
+        model=MODEL_NAME,
+
+        temperature=0.2,
+
+        max_completion_tokens=900
     )
-    for chunk in stream:
-        if chunk.choices and chunk.choices[0].delta.content:
-            yield chunk.choices[0].delta.content
+
+    return (
+        completion
+        .choices[0]
+        .message
+        .content
+    )
 
 
-def render_sources(sources: list[dict]) -> None:
-    if not sources:
-        return
-    with st.expander(f"📚 Sources ({len(sources)})"):
-        for i, s in enumerate(sources, 1):
-            m = s["meta"]
-            snippet = html.escape(s["text"][:380].replace("\n", " ")) + "…"
+# ============================================================
+# SOURCE FORMATTER
+# ============================================================
+
+def create_sources(
+    retrieved_documents
+):
+
+    sources = []
+
+    for document, distance in retrieved_documents:
+
+        metadata = document.metadata or {}
+
+        source_file = metadata.get(
+            "source_file",
+            metadata.get(
+                "source_path",
+                "Unknown document"
+            )
+        )
+
+        page_number = metadata.get(
+            "page_number",
+            metadata.get(
+                "page",
+                "Unknown"
+            )
+        )
+
+        citation = metadata.get(
+            "citation",
+            f"{source_file}, Page {page_number}"
+        )
+
+        sources.append(
+            {
+                "file": source_file,
+                "page": page_number,
+                "citation": citation,
+                "distance": float(distance),
+                "snippet": clean_text(
+                    document.page_content,
+                    500
+                )
+            }
+        )
+
+    return sources
+
+
+# ============================================================
+# SOURCE UI
+# ============================================================
+
+def display_sources(
+    sources
+):
+
+    with st.expander(
+        "📚 View Retrieved Sources"
+    ):
+
+        for source in sources:
+
             st.markdown(
-                f"""<div class="src">
-<span class="tag">S{i}</span><span class="cite">{html.escape(str(m.get('source_file', 'unknown')))}
- · Page {m.get('page_number', '?')}/{m.get('total_pages', '?')}</span>
-<span class="pill" style="float:right">{s['score']:.0%} match</span>
-<div class="meta">Chunk ID: {html.escape(str(m.get('chunk_id', '-')))}</div>
-<div class="snip">{snippet}</div></div>""",
-                unsafe_allow_html=True,
+                f"""
+                <div class="source-card">
+
+                    <div class="source-title">
+                        📄 {source["file"]}
+                    </div>
+
+                    <div class="source-meta">
+                        📑 Page {source["page"]}
+                        &nbsp; • &nbsp;
+                        🔎 Distance {source["distance"]:.4f}
+                    </div>
+
+                    <div class="source-snippet">
+                        {source["snippet"]}
+                    </div>
+
+                </div>
+                """,
+                unsafe_allow_html=True
             )
 
 
-# ----------------------------------------------------------------------------
-# Load knowledge base
-# ----------------------------------------------------------------------------
-config = read_json(CONFIG_PATH)
-manifest = read_json(MANIFEST_PATH)
-
-if not (FAISS_DIR / "index.faiss").exists():
-    st.error("Vector database not found. Add the Colab output to `rag_database/faiss_db/`.")
-    st.stop()
-
-vectorstore = load_vectorstore(config.get("embedding_model", DEFAULT_EMBEDDING_MODEL))
-doc_names = sorted(d["source_file"] for d in manifest.get("documents", []))
-
-# ----------------------------------------------------------------------------
-# Sidebar
-# ----------------------------------------------------------------------------
-with st.sidebar:
-    st.markdown("### 🎓 Knowledge base")
-    st.markdown(
-        f"""<div class="stat"><span>Documents</span><b>{config.get('total_documents', len(doc_names))}</b></div>
-<div class="stat"><span>Pages</span><b>{config.get('total_pages', '-')}</b></div>
-<div class="stat"><span>Chunks</span><b>{config.get('total_chunks', '-')}</b></div>""",
-        unsafe_allow_html=True,
-    )
-    st.markdown("### ⚙️ Settings")
-    top_k = st.slider("Sources per answer", 2, 10, 5)
-    temperature = st.slider("Creativity", 0.0, 1.0, 0.1, 0.05)
-    selected = st.multiselect("Limit to documents", doc_names, placeholder="All documents")
-    show_sources = st.toggle("Show sources", value=True)
-    if st.button("🗑️ Clear chat", width="stretch"):
-        st.session_state.messages = []
-        st.rerun()
-    st.caption(f"Model: `{GROQ_MODEL}`  \nEmbeddings: `{config.get('embedding_model', DEFAULT_EMBEDDING_MODEL)}`")
-
-# ----------------------------------------------------------------------------
-# Main UI
-# ----------------------------------------------------------------------------
-st.markdown(
-    f"""<div class="hero"><h1>{APP_TITLE}</h1>
-<p>Ask about admissions, scholarships, attendance, fees and more. Every answer links back to its source document and page.</p></div>""",
-    unsafe_allow_html=True,
-)
-
-api_key = get_api_key()
-if not api_key:
-    st.warning("Add `GROQ_API_KEY` to Streamlit secrets (or an environment variable) to start chatting.")
-    st.stop()
-client = get_client(api_key)
+# ============================================================
+# SESSION STATE
+# ============================================================
 
 if "messages" not in st.session_state:
+
     st.session_state.messages = []
 
-if not st.session_state.messages:
-    st.markdown("**Try a question**")
-    cols = st.columns(2)
-    for i, q in enumerate(SUGGESTIONS):
-        if cols[i % 2].button(q, key=f"sugg_{i}", width="stretch"):
-            st.session_state.queued = q
-            st.rerun()
 
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"], avatar="🧑‍🎓" if msg["role"] == "user" else "🎓"):
-        st.markdown(msg["content"])
-        if msg["role"] == "assistant" and show_sources:
-            render_sources(msg.get("sources", []))
+# ============================================================
+# HERO
+# ============================================================
 
-prompt = st.chat_input("Ask a question about the university…") or st.session_state.pop("queued", None)
+st.markdown(
+    """
+    <div class="hero">
 
-if prompt:
-    history = list(st.session_state.messages)
-    st.session_state.messages.append({"role": "user", "content": prompt})
-    with st.chat_message("user", avatar="🧑‍🎓"):
-        st.markdown(prompt)
+        <h1>
+            🎓 University Knowledge Assistant
+        </h1>
 
-    with st.chat_message("assistant", avatar="🎓"):
+        <p>
+            Ask questions about academic policies,
+            examinations, fees, scholarships,
+            admissions, student services and
+            university rules.
+        </p>
+
+    </div>
+    """,
+    unsafe_allow_html=True
+)
+
+
+# ============================================================
+# INITIALIZE SYSTEM
+# ============================================================
+
+try:
+
+    with st.spinner(
+        "Loading university knowledge base..."
+    ):
+
+        vectorstore, rag_config = (
+            load_rag_database()
+        )
+
+        groq_client = (
+            get_groq_client()
+        )
+
+    system_ready = True
+
+except Exception as error:
+
+    system_ready = False
+
+    st.error(
+        "⚠️ System initialization failed."
+    )
+
+    st.code(
+        str(error)
+    )
+
+
+# ============================================================
+# SIDEBAR
+# ============================================================
+
+with st.sidebar:
+
+    st.markdown(
+        "## 🎓 Assistant"
+    )
+
+    if system_ready:
+
+        st.success(
+            "Knowledge Base Ready"
+        )
+
+    else:
+
+        st.error(
+            "Knowledge Base Unavailable"
+        )
+
+    st.markdown("---")
+
+    if system_ready:
+
+        document_count = rag_config.get(
+            "document_count",
+            "—"
+        )
+
+        chunk_count = rag_config.get(
+            "chunk_count",
+            "—"
+        )
+
+        embedding_model = rag_config.get(
+            "embedding_model",
+            "BAAI/bge-small-en-v1.5"
+        )
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+
+            st.markdown(
+                f"""
+                <div class="metric-card">
+
+                    <div class="metric-value">
+                        {document_count}
+                    </div>
+
+                    <div class="metric-label">
+                        Documents
+                    </div>
+
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+        with col2:
+
+            st.markdown(
+                f"""
+                <div class="metric-card">
+
+                    <div class="metric-value">
+                        {chunk_count}
+                    </div>
+
+                    <div class="metric-label">
+                        Chunks
+                    </div>
+
+                </div>
+                """,
+                unsafe_allow_html=True
+            )
+
+        st.markdown("")
+
+        st.caption(
+            f"Embedding: `{embedding_model}`"
+        )
+
+        st.caption(
+            f"LLM: `{MODEL_NAME}`"
+        )
+
+        top_k = st.slider(
+            "🔎 Retrieved sources",
+            min_value=3,
+            max_value=8,
+            value=5
+        )
+
+    st.markdown("---")
+
+    if st.button(
+        "🗑️ Clear Chat",
+        use_container_width=True
+    ):
+
+        st.session_state.messages = []
+
+        st.rerun()
+
+    st.markdown(
+        """
+        <div class="status-card">
+
+            <b>🔎 Traceable RAG</b>
+
+            <br>
+
+            <span style="color:#9da8b3;">
+                Every retrieved answer is connected
+                to document and page metadata.
+            </span>
+
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+
+
+# ============================================================
+# DISPLAY CHAT HISTORY
+# ============================================================
+
+for message in st.session_state.messages:
+
+    with st.chat_message(
+        message["role"]
+    ):
+
+        st.markdown(
+            message["content"]
+        )
+
+        if (
+            message["role"] == "assistant"
+            and message.get("sources")
+        ):
+
+            display_sources(
+                message["sources"]
+            )
+
+
+# ============================================================
+# CHAT INPUT
+# ============================================================
+
+question = st.chat_input(
+    "Ask about university policies, fees, exams, scholarships..."
+)
+
+
+# ============================================================
+# PROCESS QUESTION
+# ============================================================
+
+if question:
+
+    if not system_ready:
+
+        st.warning(
+            "The knowledge base is not ready."
+        )
+
+        st.stop()
+
+    # Store user message
+
+    st.session_state.messages.append(
+        {
+            "role": "user",
+            "content": question
+        }
+    )
+
+    with st.chat_message("user"):
+
+        st.markdown(
+            question
+        )
+
+    with st.chat_message("assistant"):
+
         try:
-            with st.spinner("Searching documents…"):
-                sources = retrieve(vectorstore, prompt, top_k, selected)
-            answer = st.write_stream(
-                stream_answer(client, build_messages(prompt, sources, history), temperature)
+
+            with st.spinner(
+                "🔎 Searching university knowledge..."
+            ):
+
+                retrieved_documents = (
+                    retrieve_documents(
+                        vectorstore,
+                        question,
+                        top_k
+                    )
+                )
+
+                context = (
+                    build_context(
+                        retrieved_documents
+                    )
+                )
+
+            with st.spinner(
+                "🤖 Generating answer..."
+            ):
+
+                answer = generate_answer(
+                    groq_client,
+                    question,
+                    context,
+                    st.session_state.messages[:-1]
+                )
+
+            sources = create_sources(
+                retrieved_documents
             )
-            if show_sources:
-                render_sources(sources)
+
+            st.markdown(
+                answer
+            )
+
+            display_sources(
+                sources
+            )
+
             st.session_state.messages.append(
-                {"role": "assistant", "content": answer, "sources": sources}
+                {
+                    "role": "assistant",
+                    "content": answer,
+                    "sources": sources
+                }
             )
-        except Exception as e:
-            st.error(f"Something went wrong while answering: {e}")
+
+        except Exception as error:
+
+            st.error(
+                "I couldn't process the question."
+            )
+
+            st.caption(
+                f"Technical detail: {error}"
+            )
+
+
+# ============================================================
+# FOOTER
+# ============================================================
+
+st.markdown(
+    """
+    <div class="footer">
+        Built with Streamlit · FAISS · Hugging Face Embeddings · Groq
+    </div>
+    """,
+    unsafe_allow_html=True
+)
