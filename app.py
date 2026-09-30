@@ -284,8 +284,15 @@ def retrieve_documents(
     top_k
 ):
 
+    try:
+        top_k = int(top_k)
+    except (TypeError, ValueError):
+        top_k = DEFAULT_TOP_K
+
+    top_k = max(1, min(top_k, 20))
+
     return vectorstore.similarity_search_with_score(
-        query,
+        str(query),
         k=top_k
     )
 
@@ -333,25 +340,25 @@ def build_context(
 
         metadata = document.metadata or {}
 
-        source_file = metadata.get(
-            "source_file",
-            metadata.get(
-                "source_path",
-                "Unknown document"
-            )
+        source_file = (
+            metadata.get("source_file")
+            or metadata.get("source_path")
+            or metadata.get("file")
+            or metadata.get("filename")
+            or "Unknown document"
         )
 
-        page_number = metadata.get(
-            "page_number",
-            metadata.get(
-                "page",
-                "Unknown"
-            )
+        page_number = (
+            metadata.get("page_number")
+            or metadata.get("page")
+            or metadata.get("original_page_index")
+            or metadata.get("page_index")
+            or "Unknown"
         )
 
-        citation = metadata.get(
-            "citation",
-            f"{source_file}, Page {page_number}"
+        citation = (
+            metadata.get("citation")
+            or f"{source_file}, Page {page_number}"
         )
 
         context_parts.append(
@@ -423,12 +430,19 @@ Rules:
 
     for message in recent_history:
 
-        messages.append(
-            {
-                "role": message["role"],
-                "content": message["content"]
-            }
-        )
+        role = message.get("role")
+        content = message.get("content")
+
+        # Only send valid chat messages to Groq.
+        # This prevents KeyError if an older session message
+        # does not contain the expected fields.
+        if role in {"user", "assistant"} and content:
+            messages.append(
+                {
+                    "role": role,
+                    "content": str(content)
+                }
+            )
 
     messages.append(
         {
@@ -462,12 +476,15 @@ university knowledge context above.
         max_completion_tokens=900
     )
 
-    return (
-        completion
-        .choices[0]
-        .message
-        .content
-    )
+    if not completion.choices:
+        return "I could not generate an answer from the available university documents."
+
+    answer = completion.choices[0].message.content
+
+    if not answer:
+        return "I could not generate an answer from the available university documents."
+
+    return str(answer).strip()
 
 
 # ============================================================
@@ -528,10 +545,14 @@ def display_sources(sources):
 
         for index, source in enumerate(sources, start=1):
 
+            if not isinstance(source, dict):
+                continue
+
             source_file = (
                 source.get("file")
                 or source.get("source_file")
                 or source.get("source_path")
+                or source.get("filename")
                 or "Unknown document"
             )
 
@@ -556,10 +577,20 @@ def display_sources(sources):
                 or "No preview available."
             )
 
+            # Convert all metadata to strings so formatting never
+            # crashes because of an unexpected metadata type.
+            source_file = str(source_file)
+            page_number = str(page_number)
+            citation = str(citation)
+            snippet = clean_text(str(snippet), 500)
+
             if distance is not None:
-                distance_text = (
-                    f" • 🔎 Distance {float(distance):.4f}"
-                )
+                try:
+                    distance_text = (
+                        f" • 🔎 Distance {float(distance):.4f}"
+                    )
+                except (TypeError, ValueError):
+                    distance_text = ""
             else:
                 distance_text = ""
 
