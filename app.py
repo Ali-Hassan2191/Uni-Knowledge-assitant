@@ -1,5 +1,6 @@
 import os
 import json
+import textwrap
 from pathlib import Path
 
 import streamlit as st
@@ -632,25 +633,20 @@ if "messages" not in st.session_state:
 # ============================================================
 
 st.markdown(
-    """
-    <div class="hero">
+    textwrap.dedent("""
+        <div class="hero">
+            <h1>🎓 University Knowledge Assistant</h1>
 
-        <h1>
-            🎓 University Knowledge Assistant
-        </h1>
-
-        <p>
-            Ask questions about academic policies,
-            examinations, fees, scholarships,
-            admissions, student services and
-            university rules.
-        </p>
-
-    </div>
-    """,
+            <p>
+                Ask questions about academic policies,
+                examinations, fees, scholarships,
+                admissions, student services and
+                university rules.
+            </p>
+        </div>
+    """),
     unsafe_allow_html=True
 )
-
 
 # ============================================================
 # INITIALIZE SYSTEM
@@ -731,41 +727,36 @@ with st.sidebar:
         with col1:
 
             st.markdown(
-                f"""
-                <div class="metric-card">
+                textwrap.dedent(f"""
+                    <div class="metric-card">
+                         <div class="metric-value">
+                            {document_count}
+                        </div>
 
-                    <div class="metric-value">
-                        {document_count}
+                        <div class="metric-label">
+                            Documents
+                        </div>
                     </div>
-
-                    <div class="metric-label">
-                        Documents
-                    </div>
-
-                </div>
-                """,
-                unsafe_allow_html=True
-            )
+                """),
+             unsafe_allow_html=True
+        )
 
         with col2:
 
             st.markdown(
-                f"""
-                <div class="metric-card">
+                textwrap.dedent(f"""
+                    <div class="metric-card">
+                        <div class="metric-value">
+                            {chunk_count}
+                        </div>
 
-                    <div class="metric-value">
-                        {chunk_count}
+                        <div class="metric-label">
+                            Chunks
+                        </div>
                     </div>
-
-                    <div class="metric-label">
-                        Chunks
-                    </div>
-
-                </div>
-                """,
+                """),
                 unsafe_allow_html=True
             )
-
         st.markdown("")
 
         st.caption(
@@ -795,23 +786,19 @@ with st.sidebar:
         st.rerun()
 
     st.markdown(
-        """
-        <div class="status-card">
+        textwrap.dedent("""
+             <div class="status-card">
+                <b>🔎 Traceable RAG</b>
+                <br>
 
-            <b>🔎 Traceable RAG</b>
-
-            <br>
-
-            <span style="color:#9da8b3;">
-                Every retrieved answer is connected
-                to document and page metadata.
-            </span>
-
-        </div>
-        """,
+                <span style="color:#9da8b3;">
+                    Every retrieved answer is connected
+                    to document and page metadata.
+                </span>
+            </div>
+        """),
         unsafe_allow_html=True
     )
-
 
 # ============================================================
 # DISPLAY CHAT HISTORY
@@ -941,10 +928,10 @@ if question:
 # ============================================================
 
 st.markdown(
-    """
-    <div class="footer">
-        Built with Streamlit · FAISS · Hugging Face Embeddings · Groq
-    </div>
-    """,
+    textwrap.dedent("""
+        <div class="footer">
+            Built with Streamlit · FAISS · Hugging Face Embeddings · Groq
+        </div>
+    """),
     unsafe_allow_html=True
 )
