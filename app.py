@@ -1,6 +1,5 @@
 import os
 import json
-import textwrap
 from pathlib import Path
 
 import streamlit as st
@@ -44,140 +43,134 @@ MAX_HISTORY_MESSAGES = 8
 st.markdown(
     """
     <style>
+        /* Main application background */
+        .stApp {
+            background:
+                radial-gradient(
+                    circle at 10% 0%,
+                    rgba(255, 165, 0, 0.12),
+                    transparent 28%
+                ),
+                radial-gradient(
+                    circle at 90% 10%,
+                    rgba(255, 255, 255, 0.05),
+                    transparent 25%
+                ),
+                #0b0f14;
+        }
 
-    .stApp {
-        background:
-            radial-gradient(
-                circle at 10% 0%,
-                rgba(255, 165, 0, 0.12),
-                transparent 28%
-            ),
-            radial-gradient(
-                circle at 90% 10%,
-                rgba(255, 255, 255, 0.05),
-                transparent 25%
-            ),
-            #0b0f14;
-    }
+        [data-testid="stHeader"] {
+            background: transparent;
+        }
 
-    [data-testid="stHeader"] {
-        background: transparent;
-    }
+        /* Hero */
+        .hero {
+            padding: 2rem 2.2rem;
+            border-radius: 24px;
+            background:
+                linear-gradient(
+                    135deg,
+                    rgba(255, 165, 0, 0.18),
+                    rgba(255, 255, 255, 0.04)
+                );
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.25);
+            margin-bottom: 1.4rem;
+        }
 
-    .hero {
-        padding: 2rem 2.2rem;
-        border-radius: 24px;
+        .hero-title {
+            margin: 0;
+            font-size: 2.25rem;
+            font-weight: 800;
+            letter-spacing: -0.04em;
+            color: white;
+        }
 
-        background:
-            linear-gradient(
-                135deg,
-                rgba(255,165,0,0.18),
-                rgba(255,255,255,0.04)
-            );
+        .hero-text {
+            margin-top: 0.6rem;
+            color: #b9c2cc;
+            font-size: 1rem;
+            line-height: 1.6;
+        }
 
-        border: 1px solid rgba(255,255,255,0.08);
+        /* Sidebar status */
+        .status-card {
+            padding: 0.9rem 1rem;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.045);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            margin-bottom: 0.8rem;
+        }
 
-        box-shadow:
-            0 20px 50px rgba(0,0,0,0.25);
+        /* Metrics */
+        .metric-card {
+            padding: 0.9rem;
+            border-radius: 14px;
+            background: rgba(255, 255, 255, 0.045);
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            text-align: center;
+        }
 
-        margin-bottom: 1.4rem;
-    }
+        .metric-value {
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: #ffa500;
+        }
 
-    .hero h1 {
-        margin: 0;
-        font-size: 2.3rem;
-        letter-spacing: -0.04em;
-    }
+        .metric-label {
+            color: #9da8b3;
+            font-size: 0.78rem;
+        }
 
-    .hero p {
-        margin-top: 0.6rem;
-        color: #b9c2cc;
-        font-size: 1rem;
-    }
+        /* Source cards */
+        .source-card {
+            padding: 0.9rem 1rem;
+            margin: 0.55rem 0;
+            border-left: 4px solid #ffa500;
+            border-radius: 12px;
+            background: rgba(255, 255, 255, 0.045);
+            border-top: 1px solid rgba(255, 255, 255, 0.06);
+            border-right: 1px solid rgba(255, 255, 255, 0.06);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+        }
 
-    .status-card {
-        padding: 0.9rem 1rem;
-        border-radius: 14px;
+        .source-title {
+            font-weight: 700;
+            color: white;
+            overflow-wrap: anywhere;
+        }
 
-        background: rgba(255,255,255,0.045);
+        .source-meta {
+            color: #ffa500;
+            font-size: 0.86rem;
+            margin-top: 0.25rem;
+            overflow-wrap: anywhere;
+        }
 
-        border:
-            1px solid rgba(255,255,255,0.08);
+        .source-snippet {
+            color: #b9c2cc;
+            font-size: 0.86rem;
+            margin-top: 0.5rem;
+            line-height: 1.5;
+            overflow-wrap: anywhere;
+        }
 
-        margin-bottom: 0.8rem;
-    }
+        .footer {
+            text-align: center;
+            color: #6f7a85;
+            font-size: 0.78rem;
+            padding: 1.5rem 0 0.5rem;
+        }
 
-    .metric-card {
-        padding: 0.9rem;
+        /* Chat spacing */
+        [data-testid="stChatMessage"] {
+            margin-bottom: 0.75rem;
+        }
 
-        border-radius: 14px;
-
-        background: rgba(255,255,255,0.045);
-
-        border:
-            1px solid rgba(255,255,255,0.08);
-
-        text-align: center;
-    }
-
-    .metric-value {
-        font-size: 1.25rem;
-        font-weight: 800;
-        color: #ffa500;
-    }
-
-    .metric-label {
-        color: #9da8b3;
-        font-size: 0.78rem;
-    }
-
-    .source-card {
-        padding: 0.9rem 1rem;
-        margin: 0.55rem 0;
-
-        border-left:
-            4px solid #ffa500;
-
-        border-radius: 12px;
-
-        background:
-            rgba(255,255,255,0.045);
-
-        border-top:
-            1px solid rgba(255,255,255,0.06);
-
-        border-right:
-            1px solid rgba(255,255,255,0.06);
-
-        border-bottom:
-            1px solid rgba(255,255,255,0.06);
-    }
-
-    .source-title {
-        font-weight: 700;
-        color: white;
-    }
-
-    .source-meta {
-        color: #ffa500;
-        font-size: 0.86rem;
-        margin-top: 0.25rem;
-    }
-
-    .source-snippet {
-        color: #b9c2cc;
-        font-size: 0.86rem;
-        margin-top: 0.5rem;
-        line-height: 1.5;
-    }
-
-    .footer {
-        text-align: center;
-        color: #6f7a85;
-        font-size: 0.78rem;
-        padding: 1.5rem 0 0.5rem;
-    }
-
+        /* Sidebar width / readability */
+        section[data-testid="stSidebar"] {
+            border-right: 1px solid rgba(255, 255, 255, 0.06);
+        }
     </style>
     """,
     unsafe_allow_html=True,
@@ -190,6 +183,7 @@ st.markdown(
 
 @st.cache_resource(show_spinner=False)
 def load_rag_database():
+    """Load the FAISS vector database and its configuration."""
 
     if not FAISS_DIR.exists():
         raise FileNotFoundError(
@@ -198,48 +192,37 @@ def load_rag_database():
 
     if not (FAISS_DIR / "index.faiss").exists():
         raise FileNotFoundError(
-            "index.faiss was not found."
+            f"index.faiss was not found inside:\n{FAISS_DIR}"
         )
 
     if not (FAISS_DIR / "index.pkl").exists():
         raise FileNotFoundError(
-            "index.pkl was not found."
+            f"index.pkl was not found inside:\n{FAISS_DIR}"
         )
 
     if not CONFIG_FILE.exists():
         raise FileNotFoundError(
-            "rag_config.json was not found."
+            f"rag_config.json was not found:\n{CONFIG_FILE}"
         )
 
-    with open(
-        CONFIG_FILE,
-        "r",
-        encoding="utf-8"
-    ) as file:
-
+    with open(CONFIG_FILE, "r", encoding="utf-8") as file:
         config = json.load(file)
 
     embedding_model = config.get(
         "embedding_model",
-        "BAAI/bge-small-en-v1.5"
+        "BAAI/bge-small-en-v1.5",
     )
 
     embeddings = HuggingFaceEmbeddings(
         model_name=embedding_model,
-
-        model_kwargs={
-            "device": "cpu"
-        },
-
-        encode_kwargs={
-            "normalize_embeddings": True
-        }
+        model_kwargs={"device": "cpu"},
+        encode_kwargs={"normalize_embeddings": True},
     )
 
     vectorstore = FAISS.load_local(
         str(FAISS_DIR),
         embeddings,
-        allow_dangerous_deserialization=True
+        allow_dangerous_deserialization=True,
     )
 
     return vectorstore, config
@@ -251,39 +234,31 @@ def load_rag_database():
 
 @st.cache_resource(show_spinner=False)
 def get_groq_client():
+    """Create and cache the Groq client."""
 
     api_key = os.environ.get("GROQ_API_KEY")
 
     if not api_key:
-
         try:
-            api_key = st.secrets.get(
-                "GROQ_API_KEY"
-            )
-
+            api_key = st.secrets.get("GROQ_API_KEY")
         except Exception:
             api_key = None
 
     if not api_key:
-
         raise RuntimeError(
-            "GROQ_API_KEY is missing."
+            "GROQ_API_KEY is missing. Add it to your environment "
+            "variables or Streamlit secrets."
         )
 
-    return Groq(
-        api_key=api_key
-    )
+    return Groq(api_key=api_key)
 
 
 # ============================================================
 # RETRIEVAL
 # ============================================================
 
-def retrieve_documents(
-    vectorstore,
-    query,
-    top_k
-):
+def retrieve_documents(vectorstore, query, top_k):
+    """Retrieve the most relevant chunks from FAISS."""
 
     try:
         top_k = int(top_k)
@@ -294,7 +269,7 @@ def retrieve_documents(
 
     return vectorstore.similarity_search_with_score(
         str(query),
-        k=top_k
+        k=top_k,
     )
 
 
@@ -302,21 +277,13 @@ def retrieve_documents(
 # TEXT CLEANING
 # ============================================================
 
-def clean_text(
-    text,
-    limit=600
-):
+def clean_text(text, limit=600):
+    """Normalize whitespace and limit preview length."""
 
-    text = " ".join(
-        (text or "").split()
-    )
+    text = " ".join((text or "").split())
 
     if len(text) > limit:
-
-        return (
-            text[:limit].rstrip()
-            + "..."
-        )
+        return text[:limit].rstrip() + "..."
 
     return text
 
@@ -325,20 +292,15 @@ def clean_text(
 # BUILD LLM CONTEXT
 # ============================================================
 
-def build_context(
-    retrieved_documents
-):
+def build_context(retrieved_documents):
+    """Convert retrieved LangChain Documents into LLM context."""
 
     context_parts = []
 
-    for index, (
-        document,
-        distance
-    ) in enumerate(
+    for index, (document, distance) in enumerate(
         retrieved_documents,
-        start=1
+        start=1,
     ):
-
         metadata = document.metadata or {}
 
         source_file = (
@@ -380,31 +342,21 @@ Content:
 """
         )
 
-    return "\n\n".join(
-        context_parts
-    )
+    return "\n\n".join(context_parts)
 
 
 # ============================================================
 # GENERATE ANSWER
 # ============================================================
 
-def generate_answer(
-    client,
-    question,
-    context,
-    history
-):
+def generate_answer(client, question, context, history):
+    """Generate a grounded answer using Groq."""
 
-    recent_history = history[
-        -MAX_HISTORY_MESSAGES:
-    ]
+    recent_history = history[-MAX_HISTORY_MESSAGES:]
 
     messages = [
-
         {
             "role": "system",
-
             "content": """
 You are a University Student & Academic Knowledge Assistant.
 
@@ -425,65 +377,60 @@ Rules:
 8. Keep answers clear and student-friendly.
 9. When useful, mention the relevant document and page.
 10. Never create a fake source.
-"""
+""",
         }
     ]
 
     for message in recent_history:
-
         role = message.get("role")
         content = message.get("content")
 
-        # Only send valid chat messages to Groq.
-        # This prevents KeyError if an older session message
-        # does not contain the expected fields.
         if role in {"user", "assistant"} and content:
             messages.append(
                 {
                     "role": role,
-                    "content": str(content)
+                    "content": str(content),
                 }
             )
 
     messages.append(
         {
             "role": "user",
-
             "content": f"""
 UNIVERSITY KNOWLEDGE CONTEXT:
 
 {context}
 
-
 STUDENT QUESTION:
 
 {question}
 
-
 Answer the student's question using only the
 university knowledge context above.
-"""
+""",
         }
     )
 
     completion = client.chat.completions.create(
-
         messages=messages,
-
         model=MODEL_NAME,
-
         temperature=0.2,
-
-        max_completion_tokens=900
+        max_completion_tokens=900,
     )
 
     if not completion.choices:
-        return "I could not generate an answer from the available university documents."
+        return (
+            "I could not generate an answer from the "
+            "available university documents."
+        )
 
     answer = completion.choices[0].message.content
 
     if not answer:
-        return "I could not generate an answer from the available university documents."
+        return (
+            "I could not generate an answer from the "
+            "available university documents."
+        )
 
     return str(answer).strip()
 
@@ -493,22 +440,26 @@ university knowledge context above.
 # ============================================================
 
 def create_sources(retrieved_documents):
+    """Create serializable source dictionaries for session state."""
 
     sources = []
 
     for document, distance in retrieved_documents:
-
         metadata = document.metadata or {}
 
         source_file = (
             metadata.get("source_file")
             or metadata.get("source_path")
+            or metadata.get("file")
+            or metadata.get("filename")
             or "Unknown document"
         )
 
         page_number = (
             metadata.get("page_number")
             or metadata.get("page")
+            or metadata.get("original_page_index")
+            or metadata.get("page_index")
             or "Unknown"
         )
 
@@ -517,35 +468,46 @@ def create_sources(retrieved_documents):
             or f"{source_file}, Page {page_number}"
         )
 
+        try:
+            numeric_distance = float(distance)
+        except (TypeError, ValueError):
+            numeric_distance = None
+
         sources.append(
             {
-                "file": source_file,
-                "page": page_number,
-                "citation": citation,
-                "distance": float(distance),
+                "file": str(source_file),
+                "page": str(page_number),
+                "citation": str(citation),
+                "distance": numeric_distance,
                 "snippet": clean_text(
-                    document.page_content,
-                    500
-                )
+                    str(document.page_content),
+                    500,
+                ),
             }
         )
 
     return sources
+
 
 # ============================================================
 # SOURCE UI
 # ============================================================
 
 def display_sources(sources):
+    """Display retrieved sources safely.
+
+    Important:
+    Dynamic document text is escaped before being inserted into
+    HTML. This prevents source content containing '<', '>', '&',
+    etc. from breaking the Streamlit UI.
+    """
 
     with st.expander("📚 View Retrieved Sources"):
-
         if not sources:
             st.info("No source information available.")
             return
 
         for index, source in enumerate(sources, start=1):
-
             if not isinstance(source, dict):
                 continue
 
@@ -578,12 +540,15 @@ def display_sources(sources):
                 or "No preview available."
             )
 
-            # Convert all metadata to strings so formatting never
-            # crashes because of an unexpected metadata type.
-            source_file = str(source_file)
-            page_number = str(page_number)
-            citation = str(citation)
-            snippet = clean_text(str(snippet), 500)
+            # Escape dynamic values before inserting them into HTML.
+            import html
+
+            source_file = html.escape(str(source_file))
+            page_number = html.escape(str(page_number))
+            citation = html.escape(str(citation))
+            snippet = html.escape(clean_text(str(snippet), 500))
+
+            distance_text = ""
 
             if distance is not None:
                 try:
@@ -592,15 +557,12 @@ def display_sources(sources):
                     )
                 except (TypeError, ValueError):
                     distance_text = ""
-            else:
-                distance_text = ""
 
             st.markdown(
                 f"""
                 <div class="source-card">
-
                     <div class="source-title">
-                        📄 {source_file}
+                        📄 Source {index}: {source_file}
                     </div>
 
                     <div class="source-meta">
@@ -613,18 +575,17 @@ def display_sources(sources):
                     <div class="source-snippet">
                         {snippet}
                     </div>
-
                 </div>
                 """,
-                unsafe_allow_html=True
+                unsafe_allow_html=True,
             )
+
 
 # ============================================================
 # SESSION STATE
 # ============================================================
 
 if "messages" not in st.session_state:
-
     st.session_state.messages = []
 
 
@@ -633,52 +594,37 @@ if "messages" not in st.session_state:
 # ============================================================
 
 st.markdown(
-    textwrap.dedent("""
-        <div class="hero">
-            <h1>🎓 University Knowledge Assistant</h1>
-
-            <p>
-                Ask questions about academic policies,
-                examinations, fees, scholarships,
-                admissions, student services and
-                university rules.
-            </p>
+    """
+    <div class="hero">
+        <div class="hero-title">🎓 University Knowledge Assistant</div>
+        <div class="hero-text">
+            Ask questions about academic policies, examinations,
+            fees, scholarships, admissions, student services
+            and university rules.
         </div>
-    """),
-    unsafe_allow_html=True
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
+
 
 # ============================================================
 # INITIALIZE SYSTEM
 # ============================================================
 
 try:
-
-    with st.spinner(
-        "Loading university knowledge base..."
-    ):
-
-        vectorstore, rag_config = (
-            load_rag_database()
-        )
-
-        groq_client = (
-            get_groq_client()
-        )
+    with st.spinner("Loading university knowledge base..."):
+        vectorstore, rag_config = load_rag_database()
+        groq_client = get_groq_client()
 
     system_ready = True
 
 except Exception as error:
-
     system_ready = False
+    rag_config = {}
 
-    st.error(
-        "⚠️ System initialization failed."
-    )
-
-    st.code(
-        str(error)
-    )
+    st.error("⚠️ System initialization failed.")
+    st.code(str(error))
 
 
 # ============================================================
@@ -686,141 +632,124 @@ except Exception as error:
 # ============================================================
 
 with st.sidebar:
-
-    st.markdown(
-        "## 🎓 Assistant"
-    )
+    st.markdown("## 🎓 Assistant")
 
     if system_ready:
-
-        st.success(
-            "Knowledge Base Ready"
-        )
-
+        st.success("Knowledge Base Ready")
     else:
-
-        st.error(
-            "Knowledge Base Unavailable"
-        )
+        st.error("Knowledge Base Unavailable")
 
     st.markdown("---")
 
     if system_ready:
-
         document_count = rag_config.get(
             "document_count",
-            "—"
+            "—",
         )
 
         chunk_count = rag_config.get(
             "chunk_count",
-            "—"
+            "—",
         )
 
         embedding_model = rag_config.get(
             "embedding_model",
-            "BAAI/bge-small-en-v1.5"
+            "BAAI/bge-small-en-v1.5",
         )
 
         col1, col2 = st.columns(2)
 
         with col1:
-
             st.markdown(
-                textwrap.dedent(f"""
-                    <div class="metric-card">
-                         <div class="metric-value">
-                            {document_count}
-                        </div>
-
-                        <div class="metric-label">
-                            Documents
-                        </div>
+                f"""
+                <div class="metric-card">
+                    <div class="metric-value">
+                        {document_count}
                     </div>
-                """),
-             unsafe_allow_html=True
-        )
+                    <div class="metric-label">
+                        Documents
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
 
         with col2:
-
             st.markdown(
-                textwrap.dedent(f"""
-                    <div class="metric-card">
-                        <div class="metric-value">
-                            {chunk_count}
-                        </div>
-
-                        <div class="metric-label">
-                            Chunks
-                        </div>
+                f"""
+                <div class="metric-card">
+                    <div class="metric-value">
+                        {chunk_count}
                     </div>
-                """),
-                unsafe_allow_html=True
+                    <div class="metric-label">
+                        Chunks
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
             )
+
         st.markdown("")
 
-        st.caption(
-            f"Embedding: `{embedding_model}`"
-        )
-
-        st.caption(
-            f"LLM: `{MODEL_NAME}`"
-        )
+        st.caption(f"Embedding: `{embedding_model}`")
+        st.caption(f"LLM: `{MODEL_NAME}`")
 
         top_k = st.slider(
             "🔎 Retrieved sources",
             min_value=3,
             max_value=8,
-            value=5
+            value=DEFAULT_TOP_K,
         )
+
+    else:
+        top_k = DEFAULT_TOP_K
 
     st.markdown("---")
 
     if st.button(
         "🗑️ Clear Chat",
-        use_container_width=True
+        use_container_width=True,
     ):
-
         st.session_state.messages = []
-
         st.rerun()
 
     st.markdown(
-        textwrap.dedent("""
-             <div class="status-card">
-                <b>🔎 Traceable RAG</b>
-                <br>
-
-                <span style="color:#9da8b3;">
-                    Every retrieved answer is connected
-                    to document and page metadata.
-                </span>
-            </div>
-        """),
-        unsafe_allow_html=True
+        """
+        <div class="status-card">
+            <b>🔎 Traceable RAG</b><br>
+            <span style="color:#9da8b3;">
+                Every retrieved answer is connected
+                to document and page metadata.
+            </span>
+        </div>
+        """,
+        unsafe_allow_html=True,
     )
+
 
 # ============================================================
 # DISPLAY CHAT HISTORY
 # ============================================================
 
 for message in st.session_state.messages:
+    role = message.get("role")
 
-    with st.chat_message(
-        message["role"]
-    ):
+    if role not in {"user", "assistant"}:
+        continue
 
-        st.markdown(
-            message["content"]
-        )
+    with st.chat_message(role):
+        content = message.get("content", "")
 
-        if message.get("role") == "assistant":
+        if content:
+            st.markdown(content)
 
+        if role == "assistant":
             sources = message.get("sources", [])
 
-        if sources:
-            display_sources(sources)
-        
+            if sources:
+                display_sources(sources)
+
+
 # ============================================================
 # CHAT INPUT
 # ============================================================
@@ -835,91 +764,91 @@ question = st.chat_input(
 # ============================================================
 
 if question:
+    question = question.strip()
 
-    if not system_ready:
-
-        st.warning(
-            "The knowledge base is not ready."
-        )
-
+    if not question:
+        st.warning("Please enter a question.")
         st.stop()
 
-    # Store user message
+    if not system_ready:
+        st.warning(
+            "The knowledge base is not ready. "
+            "Please fix the initialization error first."
+        )
+        st.stop()
 
+    # Store user message.
     st.session_state.messages.append(
         {
             "role": "user",
-            "content": question
+            "content": question,
         }
     )
 
     with st.chat_message("user"):
-
-        st.markdown(
-            question
-        )
+        st.markdown(question)
 
     with st.chat_message("assistant"):
-
         try:
-
-            with st.spinner(
-                "🔎 Searching university knowledge..."
-            ):
-
-                retrieved_documents = (
-                    retrieve_documents(
-                        vectorstore,
-                        question,
-                        top_k
-                    )
+            with st.spinner("🔎 Searching university knowledge..."):
+                retrieved_documents = retrieve_documents(
+                    vectorstore,
+                    question,
+                    top_k,
                 )
 
-                context = (
-                    build_context(
+                if not retrieved_documents:
+                    answer = (
+                        "I could not find relevant information "
+                        "in the available university documents."
+                    )
+                    sources = []
+                else:
+                    context = build_context(
                         retrieved_documents
                     )
-                )
 
-            with st.spinner(
-                "🤖 Generating answer..."
-            ):
+                    with st.spinner("🤖 Generating answer..."):
+                        answer = generate_answer(
+                            groq_client,
+                            question,
+                            context,
+                            st.session_state.messages[:-1],
+                        )
 
-                answer = generate_answer(
-                    groq_client,
-                    question,
-                    context,
-                    st.session_state.messages[:-1]
-                )
+                    sources = create_sources(
+                        retrieved_documents
+                    )
 
-            sources = create_sources(
-                retrieved_documents
-            )
+            st.markdown(answer)
 
-            st.markdown(
-                answer
-            )
-
-            display_sources(
-                sources
-            )
+            if sources:
+                display_sources(sources)
 
             st.session_state.messages.append(
                 {
                     "role": "assistant",
                     "content": answer,
-                    "sources": sources
+                    "sources": sources,
                 }
             )
 
         except Exception as error:
-
-            st.error(
-                "I couldn't process the question."
+            error_message = (
+                "I couldn't process the question. "
+                "Please check the RAG database, API key, "
+                "and application configuration."
             )
 
-            st.caption(
-                f"Technical detail: {error}"
+            st.error(error_message)
+            st.caption(f"Technical detail: {error}")
+
+            st.session_state.messages.append(
+                {
+                    "role": "assistant",
+                    "content": error_message,
+                    "sources": [],
+                }
             )
 
 
@@ -928,10 +857,10 @@ if question:
 # ============================================================
 
 st.markdown(
-    textwrap.dedent("""
-        <div class="footer">
-            Built with Streamlit · FAISS · Hugging Face Embeddings · Groq
-        </div>
-    """),
-    unsafe_allow_html=True
+    """
+    <div class="footer">
+        Built with Streamlit · FAISS · Hugging Face Embeddings · Groq
+    </div>
+    """,
+    unsafe_allow_html=True,
 )
